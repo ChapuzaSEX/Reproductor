@@ -16,11 +16,11 @@ independiente (`song_ranking.txt`), separado de la biblioteca
 
 ## Diagrama de clases 
 
-
+![DiagramaClases](https://github.com/ChapuzaSEX/Reproductor/tree/master/Docs/diagrama_clases.png)
 
 ## Compilación y ejecución
 
-
+Para compilar y generar el .exe, primero acceder al directorio del proyecto usando el comando "cd" mediante consola, acompañado del directorio deseado.
 
 ###  g++ directo
 ```bash
