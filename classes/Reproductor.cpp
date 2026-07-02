@@ -1,18 +1,51 @@
 #include "Reproductor.h"
+#include "../data_structures/Heap.h"
 #include <iostream>
 #include <cstdlib>
 #include <ctime>
 #include <stdexcept>
+#include <cctype>
+
+// ── Comparadores de prioridad para los Heap de ranking ─────────────────────
+// Retornan true si "a" debe ir antes que "b": mayor cantidad de
+// reproducciones primero; en caso de empate, orden alfabético.
+static std::string aMinusculasLocal(const std::string& s) {
+    std::string r = s;
+    for (char& c : r) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return r;
+}
+
+static bool prioridadCancion(Cancion* const& a, Cancion* const& b) {
+    if (a->getReproducciones() != b->getReproducciones())
+        return a->getReproducciones() > b->getReproducciones();
+    return aMinusculasLocal(a->getNombre()) < aMinusculasLocal(b->getNombre());
+}
+
+static bool prioridadArtista(ArtistaEntry* const& a, ArtistaEntry* const& b) {
+    if (a->getReproduccionesTotales() != b->getReproduccionesTotales())
+        return a->getReproduccionesTotales() > b->getReproduccionesTotales();
+    return aMinusculasLocal(a->getNombreArtista()) < aMinusculasLocal(b->getNombreArtista());
+}
 
 Reproductor::Reproductor()
     : cancionActual(nullptr),
       estado(EstadoReproduccion::DETENIDO),
       modoRepeticion(ModoRepeticion::DESACTIVADO),
-      modoAleatorio(false) {
+      modoAleatorio(false),
+      trieBusqueda(cancionesSonIguales),
+      indiceArtistas(compararArtistaPorNombre) {
     srand(static_cast<unsigned int>(time(nullptr)));
 }
 
 Reproductor::~Reproductor() {
+    // Libera las entradas del índice de artistas (los ArtistaEntry, no las canciones)
+    Lista<ArtistaEntry*> artistas = indiceArtistas.enOrden();
+    Nodo<ArtistaEntry*>* nodoArtista = artistas.getCabeza();
+    while (nodoArtista != nullptr) {
+        delete nodoArtista->dato;
+        nodoArtista = nodoArtista->siguiente;
+    }
+
     // El catálogo es dueño de los punteros: los libera
     Nodo<Cancion*>* actual = catalogo.getCabeza();
     while (actual != nullptr) {
@@ -21,10 +54,50 @@ Reproductor::~Reproductor() {
     }
 }
 
+// ── Índices de búsqueda / ranking ───────────────────────────────────────────
+
+void Reproductor::reconstruirIndices() {
+    // Limpiar índices previos
+    trieBusqueda.limpiar();
+    Lista<ArtistaEntry*> artistasViejos = indiceArtistas.enOrden();
+    Nodo<ArtistaEntry*>* nodoViejo = artistasViejos.getCabeza();
+    while (nodoViejo != nullptr) {
+        delete nodoViejo->dato;
+        nodoViejo = nodoViejo->siguiente;
+    }
+    indiceArtistas.limpiar();
+
+    // Reconstruir a partir del catálogo actual
+    Nodo<Cancion*>* nodo = catalogo.getCabeza();
+    while (nodo != nullptr) {
+        Cancion* c = nodo->dato;
+
+        // Indexar en el trie: todos los sufijos del nombre y del artista
+        trieBusqueda.insertarTodosLosSufijos(c->getNombre(), c);
+        trieBusqueda.insertarTodosLosSufijos(c->getArtista(), c);
+
+        // Indexar en el AVL de artistas
+        ArtistaEntry claveTemp(c->getArtista());
+        ArtistaEntry* clavePtr = &claveTemp;
+        ArtistaEntry** encontrado = indiceArtistas.buscar(clavePtr);
+        ArtistaEntry* entrada;
+        if (encontrado == nullptr) {
+            entrada = new ArtistaEntry(c->getArtista());
+            indiceArtistas.insertar(entrada);
+        } else {
+            entrada = *encontrado;
+        }
+        entrada->agregarCancion(c);
+
+        nodo = nodo->siguiente;
+    }
+}
+
 // ── Catálogo ─────────────────────────────────────────────────────────────────
 
 void Reproductor::agregarCancion(Cancion* c) {
     catalogo.agregarFinal(c);
+    reconstruirIndices();
 }
 
 bool Reproductor::eliminarCancion(const std::string& id) {
@@ -43,6 +116,7 @@ bool Reproductor::eliminarCancion(const std::string& id) {
 
     if (encontrada != nullptr) {
         delete encontrada;
+        reconstruirIndices();
         return true;
     }
     return false;
@@ -108,6 +182,7 @@ void Reproductor::reproducirPausar() {
         cancionActual = catalogo.obtener(0);
         llenarColaAleatoria(cancionActual);
         estado = EstadoReproduccion::REPRODUCIENDO;
+        registrarReproduccion(cancionActual);
         return;
     }
 
@@ -131,6 +206,7 @@ void Reproductor::siguiente() {
     if (!pendientes.estaVacia()) {
         cancionActual = pendientes.desencolar();
         estado = EstadoReproduccion::REPRODUCIENDO;
+        registrarReproduccion(cancionActual);
         return;
     }
 
@@ -140,6 +216,7 @@ void Reproductor::siguiente() {
         if (!pendientes.estaVacia()) {
             cancionActual = pendientes.desencolar();
             estado = EstadoReproduccion::REPRODUCIENDO;
+            registrarReproduccion(cancionActual);
         }
     } else {
         // Fin de lista sin repetición
@@ -171,6 +248,7 @@ void Reproductor::anterior() {
 
     cancionActual = historial.pop();
     estado = EstadoReproduccion::REPRODUCIENDO;
+    registrarReproduccion(cancionActual);
 }
 
 void Reproductor::saltarA(int posicionEnCola) {
@@ -187,6 +265,7 @@ void Reproductor::saltarA(int posicionEnCola) {
 
     cancionActual = pendientes.desencolar();
     estado = EstadoReproduccion::REPRODUCIENDO;
+    registrarReproduccion(cancionActual);
 }
 
 void Reproductor::reproducirDirecta(Cancion* c) {
@@ -196,6 +275,7 @@ void Reproductor::reproducirDirecta(Cancion* c) {
     cancionActual = c;
     llenarColaAleatoria(c);
     estado = EstadoReproduccion::REPRODUCIENDO;
+    registrarReproduccion(cancionActual);
 }
 
 // ── Modos ─────────────────────────────────────────────────────────────────────
@@ -267,4 +347,78 @@ void Reproductor::mostrarEncabezado() const {
     std::cout << "Artista: " << cancionActual->getArtista() << std::endl;
     std::cout << "Album: "   << cancionActual->getAlbum()
               << " [" << cancionActual->getAnio() << "]" << std::endl;
+}
+
+void Reproductor::reindexar() {
+    reconstruirIndices();
+}
+
+// ── Búsqueda (Trie) ──────────────────────────────────────────────────────────
+
+Lista<Cancion*> Reproductor::buscarCanciones(const std::string& texto) const {
+    return trieBusqueda.buscarPrefijo(texto);
+}
+
+// ── Ranking / TOP 10 (Heap) ───────────────────────────────────────────────────
+
+void Reproductor::registrarReproduccion(Cancion* c) {
+    if (c == nullptr) return;
+    c->incrementarReproducciones();
+
+    ArtistaEntry claveTemp(c->getArtista());
+    ArtistaEntry* clavePtr = &claveTemp;
+    ArtistaEntry** encontrado = indiceArtistas.buscar(clavePtr);
+    if (encontrado != nullptr) {
+        (*encontrado)->sumarReproduccion();
+    }
+}
+
+Lista<Cancion*> Reproductor::top10Canciones() const {
+    Lista<Cancion*> resultado;
+    Heap<Cancion*> heap(prioridadCancion);
+
+    Nodo<Cancion*>* nodo = catalogo.getCabeza();
+    while (nodo != nullptr) {
+        heap.insertar(nodo->dato);
+        nodo = nodo->siguiente;
+    }
+
+    int limite = heap.getTamano() < 10 ? heap.getTamano() : 10;
+    for (int i = 0; i < limite; i++) {
+        resultado.agregarFinal(heap.extraerTope());
+    }
+    return resultado;
+}
+
+Lista<ArtistaEntry*> Reproductor::top10Artistas() const {
+    Lista<ArtistaEntry*> resultado;
+    Heap<ArtistaEntry*> heap(prioridadArtista);
+
+    Lista<ArtistaEntry*> artistas = indiceArtistas.enOrden();
+    Nodo<ArtistaEntry*>* nodo = artistas.getCabeza();
+    while (nodo != nullptr) {
+        heap.insertar(nodo->dato);
+        nodo = nodo->siguiente;
+    }
+
+    int limite = heap.getTamano() < 10 ? heap.getTamano() : 10;
+    for (int i = 0; i < limite; i++) {
+        resultado.agregarFinal(heap.extraerTope());
+    }
+    return resultado;
+}
+
+// ── Listado por artista (AVL) ─────────────────────────────────────────────────
+
+ArtistaEntry* Reproductor::buscarArtista(const std::string& nombreArtista) const {
+    ArtistaEntry claveTemp(nombreArtista);
+    ArtistaEntry* clavePtr = &claveTemp;
+    ArtistaEntry** encontrado = indiceArtistas.buscar(clavePtr);
+    return encontrado == nullptr ? nullptr : *encontrado;
+}
+
+Lista<Cancion*> Reproductor::cancionesDeArtista(const std::string& nombreArtista) const {
+    ArtistaEntry* entrada = buscarArtista(nombreArtista);
+    if (entrada == nullptr) return Lista<Cancion*>();
+    return entrada->getCancionesOrdenadas();
 }
