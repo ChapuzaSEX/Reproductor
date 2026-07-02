@@ -16,6 +16,7 @@ add_executable(reproductor
         data_structures/NodoAVL.h
         data_structures/NodoTrie.h
         data_structures/Trie.h
+        data_structures/Heap.h
 )
 
 target_include_directories(reproductor PRIVATE .)

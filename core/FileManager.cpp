@@ -166,4 +166,45 @@ bool guardarEstado(const std::string& ruta, Reproductor& rep) {
     return true;
 }
 
+bool cargarRanking(const std::string& ruta, Reproductor& rep) {
+    std::ifstream archivo(ruta);
+    if (!archivo.is_open()) return false; // biblioteca nueva: contadores en 0, no es un error
+
+    std::string linea;
+    while (std::getline(archivo, linea)) {
+        if (linea.empty()) continue;
+        auto pos = linea.find(',');
+        if (pos == std::string::npos) continue;
+
+        std::string id = linea.substr(0, pos);
+        std::string valorStr = linea.substr(pos + 1);
+        int reproducciones = 0;
+        try { reproducciones = std::stoi(valorStr); } catch (...) { continue; }
+
+        Nodo<Cancion*>* nodo = rep.getCatalogo().getCabeza();
+        while (nodo != nullptr) {
+            if (nodo->dato->getId() == id) {
+                nodo->dato->setReproducciones(reproducciones);
+                break;
+            }
+            nodo = nodo->siguiente;
+        }
+    }
+    archivo.close();
+    return true;
+}
+
+bool guardarRanking(const std::string& ruta, Reproductor& rep) {
+    std::ofstream archivo(ruta);
+    if (!archivo.is_open()) return false;
+
+    Nodo<Cancion*>* nodo = rep.getCatalogo().getCabeza();
+    while (nodo != nullptr) {
+        archivo << nodo->dato->getId() << "," << nodo->dato->getReproducciones() << "\n";
+        nodo = nodo->siguiente;
+    }
+    archivo.close();
+    return true;
+}
+
 } // namespace FileManager

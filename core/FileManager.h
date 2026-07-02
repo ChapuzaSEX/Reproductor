@@ -22,4 +22,12 @@ namespace FileManager {
 
     // Guarda el estado actual en status.cfg
     bool guardarEstado(const std::string& ruta, Reproductor& rep);
+
+    // Carga el contador de reproducciones por canción desde song_ranking.txt
+    // (formato: id,reproducciones por línea). Si el archivo no existe,
+    // simplemente deja todos los contadores en 0 (biblioteca nueva).
+    bool cargarRanking(const std::string& ruta, Reproductor& rep);
+
+    // Guarda el contador de reproducciones de cada canción del catálogo
+    bool guardarRanking(const std::string& ruta, Reproductor& rep);
 }
