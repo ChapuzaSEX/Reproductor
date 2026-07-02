@@ -14,6 +14,8 @@ add_executable(reproductor
         classes/ArtistaEntry.h
         data_structures/ArbolAVL.h
         data_structures/NodoAVL.h
+        data_structures/NodoTrie.h
+        data_structures/Trie.h
 )
 
 target_include_directories(reproductor PRIVATE .)
