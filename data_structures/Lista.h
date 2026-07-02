@@ -11,8 +11,35 @@ private:
     Nodo<T>* cola;
     int tamano;
 
+    void copiarDe(const Lista<T>& otra) {
+        Nodo<T>* actual = otra.cabeza;
+        while (actual != nullptr) {
+            agregarFinal(actual->dato);
+            actual = actual->siguiente;
+        }
+    }
+
 public:
     Lista() : cabeza(nullptr), cola(nullptr), tamano(0) {}
+
+    // Constructor de copia y operador de asignación: hacen una copia
+    // profunda de los NODOS de la lista (no de aquello a lo que apunte T,
+    // p. ej. si T = Cancion*, se copian los punteros, no las canciones).
+    // Sin esto, al retornar una Lista por valor (como hacen los métodos de
+    // búsqueda y ranking) el compilador haría una copia "shallow" que
+    // comparte los mismos nodos entre el original y la copia; al destruirse
+    // ambos objetos, cada uno intentaría liberar los mismos nodos, causando
+    // un doble free.
+    Lista(const Lista<T>& otra) : cabeza(nullptr), cola(nullptr), tamano(0) {
+        copiarDe(otra);
+    }
+
+    Lista<T>& operator=(const Lista<T>& otra) {
+        if (this == &otra) return *this;
+        limpiar();
+        copiarDe(otra);
+        return *this;
+    }
 
     ~Lista() {
         limpiar();

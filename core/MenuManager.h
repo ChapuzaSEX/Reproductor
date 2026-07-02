@@ -24,4 +24,10 @@ namespace MenuManager {
     // Solicita datos de una canción nueva por consola y la agrega
     void agregarCancionNueva(Reproductor& rep,
                              const std::string& rutaCanciones);
+
+    // Submenú F: búsqueda de canciones por nombre y/o artista (Trie)
+    void menuBusqueda(Reproductor& rep, const std::string& rutaEstado);
+
+    // Submenú T: ranking TOP 10 (Heap) — pantalla de entrada C/A/X
+    void menuRankingTop(Reproductor& rep, const std::string& rutaEstado);
 }

@@ -5,6 +5,7 @@
 
 const std::string RUTA_CANCIONES = "music_source.txt";
 const std::string RUTA_ESTADO    = "status.cfg";
+const std::string RUTA_RANKING   = "song_ranking.txt";
 
 int main() {
     Reproductor rep;
@@ -17,9 +18,11 @@ int main() {
                   << ". El reproductor iniciara sin canciones." << std::endl;
     }
 
-    // 2. Restaurar estado previo (si existe status.cfg y hay canciones)
+    // 2. Restaurar estado previo y ranking de reproducciones (si existen)
     if (hayCanciones) {
         FileManager::cargarEstado(RUTA_ESTADO, rep);
+        FileManager::cargarRanking(RUTA_RANKING, rep);
+        rep.reindexar(); // recalcula totales por artista con el ranking recien cargado
     }
 
     // 3. Bucle principal
@@ -31,16 +34,19 @@ int main() {
             case 'W':
                 rep.reproducirPausar();
                 FileManager::guardarEstado(RUTA_ESTADO, rep);
+                FileManager::guardarRanking(RUTA_RANKING, rep);
                 break;
 
             case 'Q':
                 rep.anterior();
                 FileManager::guardarEstado(RUTA_ESTADO, rep);
+                FileManager::guardarRanking(RUTA_RANKING, rep);
                 break;
 
             case 'E':
                 rep.siguiente();
                 FileManager::guardarEstado(RUTA_ESTADO, rep);
+                FileManager::guardarRanking(RUTA_RANKING, rep);
                 break;
 
             case 'S':
@@ -61,8 +67,17 @@ int main() {
                 MenuManager::menuListadoCanciones(rep, RUTA_CANCIONES, RUTA_ESTADO);
                 break;
 
+            case 'F':
+                MenuManager::menuBusqueda(rep, RUTA_ESTADO);
+                break;
+
+            case 'T':
+                MenuManager::menuRankingTop(rep, RUTA_ESTADO);
+                break;
+
             case 'X':
                 FileManager::guardarEstado(RUTA_ESTADO, rep);
+                FileManager::guardarRanking(RUTA_RANKING, rep);
                 std::cout << "Saliendo..." << std::endl;
                 break;
 
