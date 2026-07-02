@@ -10,6 +10,8 @@ add_executable(reproductor
     classes/Reproductor.cpp
     core/FileManager.cpp
     core/MenuManager.cpp
+        classes/ArtistaEntry.cpp
+        classes/ArtistaEntry.h
 )
 
 target_include_directories(reproductor PRIVATE .)
