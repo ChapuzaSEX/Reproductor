@@ -12,6 +12,8 @@ add_executable(reproductor
     core/MenuManager.cpp
         classes/ArtistaEntry.cpp
         classes/ArtistaEntry.h
+        data_structures/ArbolAVL.h
+        data_structures/NodoAVL.h
 )
 
 target_include_directories(reproductor PRIVATE .)
